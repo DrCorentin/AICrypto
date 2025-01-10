@@ -5,21 +5,41 @@ from src.tools.api_interface import APIInterface
 import pandas as pd
 import signal
 import sys
+import json
 
-# Portfolio variables
-balance_eur = 50.0  # Starting EUR balance
-crypto_holdings = 0.0  # Starting BTC holdings
+# Portfolio management
+def save_portfolio(balance, holdings, filepath="portfolio.json"):
+    portfolio = {"balance_eur": balance, "crypto_holdings": holdings}
+    with open(filepath, "w") as f:
+        json.dump(portfolio, f)
+    print("Portfolio saved.")
+
+def load_portfolio(filepath="portfolio.json"):
+    try:
+        with open(filepath, "r") as f:
+            portfolio = json.load(f)
+        print("Portfolio loaded.")
+        return portfolio["balance_eur"], portfolio["crypto_holdings"]
+    except FileNotFoundError:
+        print("No saved portfolio found. Initializing new portfolio.")
+        return 50.0, 0.0  # Default starting values
+
+# Initialize global variables
+balance_eur, crypto_holdings = load_portfolio()
 symbol = "BTCUSDT"
+model = None  # Placeholder for model
 
 # Initialize API
 api = APIInterface(exchange="binance")
 
 def signal_handler(sig, frame):
     """
-    Handle interrupt signal (Ctrl+C) to save the model and exit gracefully.
+    Handle interrupt signal (Ctrl+C) to save the model and portfolio.
     """
-    print("\nTraining interrupted. Saving the model...")
-    model.save('models/btc_model_interrupted.h5')
+    print("\nTraining interrupted. Saving the model and portfolio...")
+    if model:
+        model.save('models/btc_model_interrupted.h5')
+    save_portfolio(balance_eur, crypto_holdings)
     sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -81,6 +101,7 @@ def main():
             crypto_holdings += crypto_to_buy
             balance_eur = 0.0  # All balance spent
             print(f"Trading Signal: BUY - Bought {crypto_to_buy:.6f} BTC")
+            save_portfolio(balance_eur, crypto_holdings)
         else:
             print("Trading Signal: BUY - Insufficient balance to buy BTC")
     elif predicted_price < confidence_interval[0]:  # Strong SELL signal
@@ -89,6 +110,7 @@ def main():
             balance_eur += earnings
             print(f"Trading Signal: SELL - Sold {crypto_holdings:.6f} BTC for {earnings:.2f} EUR")
             crypto_holdings = 0.0  # All holdings sold
+            save_portfolio(balance_eur, crypto_holdings)
         else:
             print("Trading Signal: SELL - No crypto holdings to sell")
     else:
