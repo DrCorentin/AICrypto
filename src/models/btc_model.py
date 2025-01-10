@@ -4,11 +4,28 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense
-from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.callbacks import ModelCheckpoint, EarlyStopping, Callback
 import os
 
 LOOKBACK = 60  # Number of past time steps to consider for prediction
 MODEL_PATH = 'models/btc_model.h5'  # Path to save/load the model
+
+class PredictionLogger(Callback):
+    """
+    Custom Keras callback to log predicted vs actual prices during training.
+    """
+    def __init__(self, X_val, y_val, scaler):
+        super().__init__()
+        self.X_val = X_val
+        self.y_val = y_val
+        self.scaler = scaler
+
+    def on_epoch_end(self, epoch, logs=None):
+        predictions = self.model.predict(self.X_val)
+        predicted_prices = self.scaler.inverse_transform(predictions)
+        actual_prices = self.scaler.inverse_transform(self.y_val.reshape(-1, 1))
+        print(f"\nEpoch {epoch + 1}:")
+        print(f"Predicted Price: {predicted_prices[0][0]:.2f}, Actual Price: {actual_prices[0][0]:.2f}")
 
 def preprocess_data_btc(df):
     """
@@ -49,28 +66,21 @@ def load_or_build_model(input_shape):
         model = build_btc_model(input_shape)
     return model
 
-def train_model(model, X_train, y_train, epochs=100, batch_size=32):
+def train_model(model, X_train, y_train, scaler, X_val=None, y_val=None, epochs=100, batch_size=32):
     """
-    Train the model with checkpointing.
+    Train the model with checkpointing and log predicted vs actual prices.
     """
     checkpoint = ModelCheckpoint(MODEL_PATH, monitor='loss', verbose=1, save_best_only=True, mode='min')
     early_stopping = EarlyStopping(monitor='loss', patience=10, verbose=1)
     callbacks_list = [checkpoint, early_stopping]
 
+    if X_val is not None and y_val is not None:
+        # Add custom callback to log predictions
+        prediction_logger = PredictionLogger(X_val, y_val, scaler)
+        callbacks_list.append(prediction_logger)
+
     print(f"Training the model for {epochs} epochs with batch size {batch_size}...")
-    model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1, callbacks=callbacks_list)
-    return model
-
-def train_until_convergence(model, X_train, y_train, batch_size=32, patience=10, min_delta=1e-4):
-    """
-    Train the model until the loss converges using early stopping.
-    """
-    checkpoint = ModelCheckpoint(MODEL_PATH, monitor='loss', verbose=1, save_best_only=True, mode='min')
-    early_stopping = EarlyStopping(monitor='loss', patience=patience, min_delta=min_delta, verbose=1)
-    callbacks_list = [checkpoint, early_stopping]
-
-    print("Training the model until convergence...")
-    history = model.fit(X_train, y_train, epochs=1000, batch_size=batch_size, verbose=1, callbacks=callbacks_list)
+    model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1, validation_data=(X_val, y_val), callbacks=callbacks_list)
     return model
 
 def predict_price(model, X_test, scaler):
