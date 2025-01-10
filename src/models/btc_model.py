@@ -61,6 +61,18 @@ def train_model(model, X_train, y_train, epochs=100, batch_size=32):
     model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1, callbacks=callbacks_list)
     return model
 
+def train_until_convergence(model, X_train, y_train, batch_size=32, patience=10, min_delta=1e-4):
+    """
+    Train the model until the loss converges using early stopping.
+    """
+    checkpoint = ModelCheckpoint(MODEL_PATH, monitor='loss', verbose=1, save_best_only=True, mode='min')
+    early_stopping = EarlyStopping(monitor='loss', patience=patience, min_delta=min_delta, verbose=1)
+    callbacks_list = [checkpoint, early_stopping]
+
+    print("Training the model until convergence...")
+    history = model.fit(X_train, y_train, epochs=1000, batch_size=batch_size, verbose=1, callbacks=callbacks_list)
+    return model
+
 def predict_price(model, X_test, scaler):
     """
     Predict the next price using the trained BTC model.
