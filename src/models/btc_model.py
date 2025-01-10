@@ -1,12 +1,14 @@
 # src/models/btc_model.py
 
-from keras.callbacks import EarlyStopping
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+import os
 
 LOOKBACK = 60  # Number of past time steps to consider for prediction
+MODEL_PATH = 'models/btc_model.h5'  # Path to save/load the model
 
 def preprocess_data_btc(df):
     """
@@ -35,29 +37,28 @@ def build_btc_model(input_shape):
     model.compile(optimizer='adam', loss='mean_squared_error')
     return model
 
-def train_until_convergence(model, X_train, y_train, batch_size=32, patience=3, min_delta=1e-4):
+def load_or_build_model(input_shape):
     """
-    Train the model until convergence using Early Stopping.
-
-    Args:
-        model (Sequential): The LSTM model.
-        X_train (ndarray): Training features.
-        y_train (ndarray): Training labels.
-        batch_size (int): Batch size for training.
-        patience (int): Number of epochs with no improvement before stopping.
-        min_delta (float): Minimum change in loss to be considered as an improvement.
-
-    Returns:
-        model (Sequential): The trained model.
+    Load the model if it exists; otherwise, build a new one.
     """
-    early_stopping = EarlyStopping(
-        monitor='loss',
-        patience=patience,
-        min_delta=min_delta,
-        restore_best_weights=True
-    )
-    print(f"Training the model with Early Stopping (patience={patience}, min_delta={min_delta})...")
-    model.fit(X_train, y_train, batch_size=batch_size, epochs=100, verbose=1, callbacks=[early_stopping])
+    if os.path.exists(MODEL_PATH):
+        print("Loading existing model...")
+        model = load_model(MODEL_PATH)
+    else:
+        print("Building a new model...")
+        model = build_btc_model(input_shape)
+    return model
+
+def train_model(model, X_train, y_train, epochs=100, batch_size=32):
+    """
+    Train the model with checkpointing.
+    """
+    checkpoint = ModelCheckpoint(MODEL_PATH, monitor='loss', verbose=1, save_best_only=True, mode='min')
+    early_stopping = EarlyStopping(monitor='loss', patience=10, verbose=1)
+    callbacks_list = [checkpoint, early_stopping]
+
+    print(f"Training the model for {epochs} epochs with batch size {batch_size}...")
+    model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1, callbacks=callbacks_list)
     return model
 
 def predict_price(model, X_test, scaler):
@@ -67,3 +68,12 @@ def predict_price(model, X_test, scaler):
     predicted_scaled = model.predict(X_test)
     predicted_price = scaler.inverse_transform(predicted_scaled)[0][0]
     return predicted_price
+
+def calculate_confidence_interval(predictions):
+    """
+    Calculate the confidence interval of the predictions.
+    """
+    mean_prediction = np.mean(predictions)
+    std_dev = np.std(predictions)
+    confidence_interval = (mean_prediction - 1.96 * std_dev, mean_prediction + 1.96 * std_dev)
+    return confidence_interval
