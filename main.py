@@ -65,7 +65,8 @@ def main():
     model = load_or_build_model(X.shape)
 
     # Train the BTC model
-    model = train_model(model, X, y, epochs=100, batch_size=32)
+    # Corrected: Pass the scaler to the train_model function
+    model = train_model(model, X, y, scaler, epochs=100, batch_size=32)
 
     # Predict price using the BTC model
     X_test = X[-1].reshape(1, X.shape[1], X.shape[2])  # Last sequence as test input
