@@ -68,7 +68,20 @@ def load_or_build_model(input_shape):
 
 def train_model(model, X_train, y_train, scaler, X_val=None, y_val=None, epochs=100, batch_size=32):
     """
-    Train the model with checkpointing and log predicted vs actual prices.
+    Train the model with checkpointing and optionally log predicted vs actual prices.
+
+    Args:
+        model (Sequential): The LSTM model.
+        X_train (ndarray): Training features.
+        y_train (ndarray): Training labels.
+        scaler (MinMaxScaler): Scaler for data normalization.
+        X_val (ndarray, optional): Validation features.
+        y_val (ndarray, optional): Validation labels.
+        epochs (int): Number of training epochs.
+        batch_size (int): Batch size for training.
+
+    Returns:
+        model (Sequential): Trained model.
     """
     checkpoint = ModelCheckpoint(MODEL_PATH, monitor='loss', verbose=1, save_best_only=True, mode='min')
     early_stopping = EarlyStopping(monitor='loss', patience=10, verbose=1)
@@ -78,9 +91,13 @@ def train_model(model, X_train, y_train, scaler, X_val=None, y_val=None, epochs=
         # Add custom callback to log predictions
         prediction_logger = PredictionLogger(X_val, y_val, scaler)
         callbacks_list.append(prediction_logger)
-
-    print(f"Training the model for {epochs} epochs with batch size {batch_size}...")
-    model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1, validation_data=(X_val, y_val), callbacks=callbacks_list)
+        print(f"Training the model for {epochs} epochs with batch size {batch_size}...")
+        model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1, 
+                  validation_data=(X_val, y_val), callbacks=callbacks_list)
+    else:
+        print(f"Training the model for {epochs} epochs with batch size {batch_size} (no validation)...")
+        model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1, callbacks=callbacks_list)
+    
     return model
 
 def predict_price(model, X_test, scaler):

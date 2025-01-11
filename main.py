@@ -2,6 +2,7 @@
 
 from src.models.btc_model import preprocess_data_btc, load_or_build_model, train_model, predict_price, calculate_confidence_interval
 from src.tools.api_interface import APIInterface
+from sklearn.model_selection import train_test_split
 import pandas as pd
 import signal
 import sys
@@ -60,13 +61,16 @@ def main():
     print(f"Preprocessing data for {symbol}...")
     X, y, scaler = preprocess_data_btc(historical_data)
 
+    # Split data into training and validation sets
+    print("Splitting data into training and validation sets...")
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
     # Load or build the BTC model
     print(f"Loading or building the model for {symbol}...")
     model = load_or_build_model(X.shape)
 
-    # Train the BTC model
-    # Corrected: Pass the scaler to the train_model function
-    model = train_model(model, X, y, scaler, epochs=100, batch_size=32)
+    # Train the BTC model with validation data
+    model = train_model(model, X_train, y_train, scaler, X_val=X_val, y_val=y_val, epochs=100, batch_size=32)
 
     # Predict price using the BTC model
     X_test = X[-1].reshape(1, X.shape[1], X.shape[2])  # Last sequence as test input
