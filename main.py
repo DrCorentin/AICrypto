@@ -7,6 +7,7 @@ import pandas as pd
 import signal
 import sys
 import json
+import os
 
 # Portfolio management
 def save_portfolio(balance, holdings, filepath="portfolio.json"):
@@ -24,6 +25,27 @@ def load_portfolio(filepath="portfolio.json"):
     except FileNotFoundError:
         print("No saved portfolio found. Initializing new portfolio.")
         return 50.0, 0.0  # Default starting values
+
+def save_preprocessed_data(X, y, scaler, filepath="data/preprocessed_data.csv"):
+    """
+    Save preprocessed features, targets, and scaler to a file.
+    """
+    data = pd.DataFrame(X, columns=["Feature_" + str(i) for i in range(X.shape[1])])
+    data["Target"] = y
+    data.to_csv(filepath, index=False)
+    print(f"Preprocessed data saved to {filepath}.")
+
+def load_preprocessed_data(filepath="data/preprocessed_data.csv"):
+    """
+    Load preprocessed features and targets from a CSV file.
+    """
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"No preprocessed data found at {filepath}. Please preprocess the data first.")
+    data = pd.read_csv(filepath)
+    X = data.drop(columns=["Target"]).to_numpy()
+    y = data["Target"].to_numpy()
+    print(f"Preprocessed data loaded from {filepath}.")
+    return X, y
 
 # Initialize global variables
 balance_eur, crypto_holdings = load_portfolio()
@@ -53,13 +75,23 @@ def main():
 
     print("Starting Crypto Hedge Fund Model...")
 
-    # Fetch historical data for BTC
-    print(f"Fetching historical data for {symbol}...")
-    historical_data = api.fetch_historical_data(symbol)
+    # Path for preprocessed data
+    preprocessed_data_path = "data/preprocessed_data.csv"
 
-    # Preprocess data for the BTC model
-    print(f"Preprocessing data for {symbol}...")
-    X, y, scaler = preprocess_data_btc(historical_data)
+    # Fetch or load historical data for BTC
+    if os.path.exists(preprocessed_data_path):
+        print("Loading preprocessed data...")
+        X, y = load_preprocessed_data(preprocessed_data_path)
+    else:
+        print(f"Fetching historical data for {symbol}...")
+        historical_data = api.fetch_historical_data(symbol)
+
+        # Preprocess data for the BTC model
+        print(f"Preprocessing data for {symbol}...")
+        X, y, scaler = preprocess_data_btc(historical_data)
+
+        # Save preprocessed data for future use
+        save_preprocessed_data(X, y, scaler, preprocessed_data_path)
 
     # Split data into training and validation sets
     print("Splitting data into training and validation sets...")
