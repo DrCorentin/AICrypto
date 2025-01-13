@@ -78,7 +78,7 @@ def main():
     # Path for preprocessed data
     preprocessed_data_path = "data/preprocessed_data.csv"
 
-    # Fetch or load historical data for BTC
+    # Check if preprocessed data exists
     if os.path.exists(preprocessed_data_path):
         print("Loading preprocessed data...")
         X, y = load_preprocessed_data(preprocessed_data_path)
@@ -92,6 +92,7 @@ def main():
 
         # Save preprocessed data for future use
         save_preprocessed_data(X, y, scaler, preprocessed_data_path)
+
 
     # Split data into training and validation sets
     print("Splitting data into training and validation sets...")

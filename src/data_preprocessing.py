@@ -36,36 +36,42 @@ def prepare_features(data):
 
     return X, y
 
-def save_preprocessed_data(X, y, filepath="data/preprocessed_data.csv"):
+def save_preprocessed_data(X, y, scaler, filepath="data/preprocessed_data.csv"):
     """
-    Save preprocessed features and targets to a CSV file.
-
+    Save preprocessed features, targets, and scaler to a file.
     Args:
-        X (ndarray): Features array.
+        X (ndarray): Features array (3D) for the model.
         y (ndarray): Target array.
+        scaler (MinMaxScaler): Scaler used for normalization (optional for loading).
         filepath (str): Path to save the preprocessed data.
     """
-    data = pd.DataFrame(X, columns=["Stock-to-Flow", "NVT", "Mining Cost", "Metcalfe Value"])
-    data['Price'] = y
+    # Flatten X to 2D for saving
+    X_flat = X.reshape(X.shape[0], -1)
+    data = pd.DataFrame(X_flat, columns=["Feature_" + str(i) for i in range(X_flat.shape[1])])
+    data["Target"] = y
     data.to_csv(filepath, index=False)
     print(f"Preprocessed data saved to {filepath}.")
 
 def load_preprocessed_data(filepath="data/preprocessed_data.csv"):
     """
     Load preprocessed features and targets from a CSV file.
-
     Args:
         filepath (str): Path to the preprocessed data file.
-
     Returns:
-        X (ndarray): Features array.
+        X (ndarray): Features array (3D) reshaped for the model.
         y (ndarray): Target array.
     """
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"No preprocessed data found at {filepath}. Please preprocess the data first.")
     
     data = pd.read_csv(filepath)
-    X = data[["Stock-to-Flow", "NVT", "Mining Cost", "Metcalfe Value"]].to_numpy()
-    y = data["Price"].to_numpy()
+    X_flat = data.drop(columns=["Target"]).to_numpy()
+    y = data["Target"].to_numpy()
+
+    # Reshape X back to 3D
+    num_features = X_flat.shape[1] // 60  # 60 is the LOOKBACK
+    X = X_flat.reshape(X_flat.shape[0], 60, num_features)
     print(f"Preprocessed data loaded from {filepath}.")
     return X, y
+
+
