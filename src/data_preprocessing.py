@@ -39,24 +39,31 @@ def prepare_features(data):
 def save_preprocessed_data(X, y, scaler, filepath="data/preprocessed_data.csv"):
     """
     Save preprocessed features, targets, and scaler to a file.
+    
     Args:
         X (ndarray): Features array (3D) for the model.
         y (ndarray): Target array.
         scaler (MinMaxScaler): Scaler used for normalization (optional for loading).
         filepath (str): Path to save the preprocessed data.
     """
-    # Flatten X to 2D for saving
+    # Flatten X from 3D (samples, lookback, features) to 2D (samples, lookback * features)
     X_flat = X.reshape(X.shape[0], -1)
+    
+    # Create a DataFrame for saving
     data = pd.DataFrame(X_flat, columns=["Feature_" + str(i) for i in range(X_flat.shape[1])])
-    data["Target"] = y
+    data["Target"] = y  # Add the target column
     data.to_csv(filepath, index=False)
     print(f"Preprocessed data saved to {filepath}.")
 
-def load_preprocessed_data(filepath="data/preprocessed_data.csv"):
+def load_preprocessed_data(filepath="data/preprocessed_data.csv", lookback=60, num_features=1):
     """
     Load preprocessed features and targets from a CSV file.
+    
     Args:
         filepath (str): Path to the preprocessed data file.
+        lookback (int): The number of time steps in the lookback window.
+        num_features (int): Number of features per time step.
+
     Returns:
         X (ndarray): Features array (3D) reshaped for the model.
         y (ndarray): Target array.
@@ -69,8 +76,7 @@ def load_preprocessed_data(filepath="data/preprocessed_data.csv"):
     y = data["Target"].to_numpy()
 
     # Reshape X back to 3D
-    num_features = X_flat.shape[1] // 60  # 60 is the LOOKBACK
-    X = X_flat.reshape(X_flat.shape[0], 60, num_features)
+    X = X_flat.reshape(X_flat.shape[0], lookback, num_features)
     print(f"Preprocessed data loaded from {filepath}.")
     return X, y
 
